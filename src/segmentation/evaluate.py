@@ -11,7 +11,7 @@ from tqdm import tqdm
 from .config import load_classes, load_yaml
 from .dataset import SegmentationDataset
 from .metrics import ConfusionMatrix
-from .models import build_model
+from .models import build_model, load_model_state
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,7 +46,11 @@ def main() -> None:
 
     model = build_model(config["model"]["name"], len(classes), pretrained=False).to(device)
     checkpoint = torch.load(args.checkpoint, map_location=device)
-    model.load_state_dict(checkpoint["model_state"])
+    missing_keys, skipped_keys = load_model_state(model, checkpoint["model_state"])
+    if skipped_keys:
+        print(f"Skipped incompatible checkpoint keys: {skipped_keys}")
+    if missing_keys:
+        print(f"Missing model keys initialized from defaults: {missing_keys}")
     model.eval()
 
     matrix = ConfusionMatrix(num_classes=len(classes), ignore_index=ignore_index)
@@ -70,4 +74,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

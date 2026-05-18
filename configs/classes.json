@@ -1,11 +1,8 @@
 {
   "classes": [
     {"id": 0, "name": "background", "color": [0, 0, 0]},
-    {"id": 1, "name": "person", "color": [220, 20, 60]},
-    {"id": 2, "name": "car", "color": [0, 128, 255]},
-    {"id": 3, "name": "road", "color": [128, 64, 128]},
-    {"id": 4, "name": "tree", "color": [34, 139, 34]},
-    {"id": 5, "name": "sky", "color": [70, 130, 180]}
+    {"id": 1, "name": "cat", "color": [220, 20, 60]},
+    {"id": 2, "name": "dog", "color": [0, 128, 255]}
   ],
   "ignore_index": 255
 }

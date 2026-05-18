@@ -9,8 +9,8 @@ from PIL import Image
 from torchvision.transforms import functional as TF
 
 from .config import load_classes, load_yaml
-from .models import build_model
-from .visualization import save_colorized_mask
+from .models import build_model, load_model_state
+from .visualization import draw_detection_box, save_colorized_mask
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,6 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image", required=True)
     parser.add_argument("--output", default="outputs/predictions/result.png")
     parser.add_argument("--raw-output", default=None, help="Optional path for class-id grayscale mask.")
+    parser.add_argument("--boxed-output", default=None, help="Optional path for image with label and red box.")
     return parser.parse_args()
 
 
@@ -40,7 +41,11 @@ def main() -> None:
 
     model = build_model(config["model"]["name"], len(classes), pretrained=False).to(device)
     checkpoint = torch.load(args.checkpoint, map_location=device)
-    model.load_state_dict(checkpoint["model_state"])
+    missing_keys, skipped_keys = load_model_state(model, checkpoint["model_state"])
+    if skipped_keys:
+        print(f"Skipped incompatible checkpoint keys: {skipped_keys}")
+    if missing_keys:
+        print(f"Missing model keys initialized from defaults: {missing_keys}")
     model.eval()
 
     original = Image.open(args.image).convert("RGB")
@@ -58,7 +63,14 @@ def main() -> None:
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(prediction, mode="L").save(raw_path)
 
+    if args.boxed_output:
+        draw_detection_box(
+            image=original,
+            mask=prediction,
+            class_names=[item.name for item in classes],
+            output=args.boxed_output,
+        )
+
 
 if __name__ == "__main__":
     main()
-

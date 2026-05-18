@@ -1,13 +1,17 @@
 .venv/
 .pycache/
+.cache/
+.idea/
 __pycache__/
 *.pyc
 .DS_Store
 outputs/checkpoints/*.pt
 outputs/predictions/*
 outputs/reports/*.json
+outputs/reports/*.png
 data/raw/images/*
 data/raw/masks/*
+data/downloads/*
 data/processed/*/images/*
 data/processed/*/masks/*
 !data/raw/images/.gitkeep

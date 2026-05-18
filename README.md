@@ -41,6 +41,22 @@ data/processed/test/masks/
 
 ## 3. 切分数据
 
+如果你想直接准备一个猫/狗语义分割小数据集，可以使用 Oxford-IIIT Pet 官方数据源：
+
+```bash
+python scripts/prepare_oxford_pet_subset.py --max-per-class 80
+```
+
+这会生成：
+
+- `data/processed/train/images/` 和 `data/processed/train/masks/`
+- `data/processed/val/images/` 和 `data/processed/val/masks/`
+- `data/processed/test/images/` 和 `data/processed/test/masks/`
+
+默认类别是 `0=background, 1=cat, 2=dog`。
+
+如果你已经有自己的原始图片和 mask，可以使用下面的脚本切分数据：
+
 ```bash
 python scripts/split_dataset.py \
   --images data/raw/images \

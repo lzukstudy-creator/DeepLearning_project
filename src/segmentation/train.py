@@ -15,12 +15,13 @@ from tqdm import tqdm
 from .config import load_classes, load_yaml
 from .dataset import SegmentationDataset
 from .metrics import ConfusionMatrix
-from .models import build_model
+from .models import build_model, load_model_state
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a semantic segmentation model.")
     parser.add_argument("--config", default="configs/train.yaml", help="Path to training config.")
+    parser.add_argument("--resume", default=None, help="Optional checkpoint path to resume training.")
     return parser.parse_args()
 
 
@@ -100,7 +101,16 @@ def evaluate(model, loader, device, num_classes: int, ignore_index: int) -> Dict
     return metrics
 
 
-def save_checkpoint(path: Path, model, optimizer, epoch: int, metrics: Dict[str, object], config: Dict) -> None:
+def save_checkpoint(
+    path: Path,
+    model,
+    optimizer,
+    epoch: int,
+    metrics: Dict[str, object],
+    config: Dict,
+    best_miou: float,
+    history: list[Dict[str, object]],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
@@ -109,9 +119,30 @@ def save_checkpoint(path: Path, model, optimizer, epoch: int, metrics: Dict[str,
             "optimizer_state": optimizer.state_dict(),
             "metrics": metrics,
             "config": config,
+            "best_miou": best_miou,
+            "history": history,
         },
         path,
     )
+
+
+def load_checkpoint(path: str | Path, model, optimizer, device) -> tuple[int, float, list[Dict[str, object]]]:
+    checkpoint = torch.load(path, map_location=device)
+    missing_keys, skipped_keys = load_model_state(model, checkpoint["model_state"])
+    if skipped_keys:
+        print(f"Skipped incompatible checkpoint keys while resuming: {skipped_keys}")
+    if missing_keys:
+        print(f"Missing model keys initialized from defaults while resuming: {missing_keys}")
+
+    if "optimizer_state" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+
+    start_epoch = int(checkpoint.get("epoch", 0)) + 1
+    metrics = checkpoint.get("metrics", {})
+    best_miou = float(checkpoint.get("best_miou", metrics.get("mean_iou", -1.0)))
+    history = list(checkpoint.get("history", []))
+    print(f"Resumed from {path}: next_epoch={start_epoch}, best_miou={best_miou:.4f}")
+    return start_epoch, best_miou, history
 
 
 def main() -> None:
@@ -140,23 +171,47 @@ def main() -> None:
     checkpoint_dir = Path(config["training"]["checkpoint_dir"])
     best_miou = -1.0
     history = []
+    start_epoch = 1
 
-    for epoch in range(1, int(config["training"]["epochs"]) + 1):
-        train_loss = train_one_epoch(model, train_loader, optimizer, device, ignore_index)
-        val_metrics = evaluate(model, val_loader, device, len(classes), ignore_index)
-        val_metrics["train_loss"] = train_loss
-        val_metrics["epoch"] = epoch
-        history.append(val_metrics)
+    if args.resume:
+        start_epoch, best_miou, history = load_checkpoint(args.resume, model, optimizer, device)
 
-        print(
-            f"epoch={epoch} train_loss={train_loss:.4f} "
-            f"val_loss={val_metrics['loss']:.4f} val_miou={val_metrics['mean_iou']:.4f}"
+    last_metrics: Dict[str, object] = {}
+
+    try:
+        for epoch in range(start_epoch, int(config["training"]["epochs"]) + 1):
+            train_loss = train_one_epoch(model, train_loader, optimizer, device, ignore_index)
+            val_metrics = evaluate(model, val_loader, device, len(classes), ignore_index)
+            val_metrics["train_loss"] = train_loss
+            val_metrics["epoch"] = epoch
+            history.append(val_metrics)
+            last_metrics = val_metrics
+
+            print(
+                f"epoch={epoch} train_loss={train_loss:.4f} "
+                f"val_loss={val_metrics['loss']:.4f} val_miou={val_metrics['mean_iou']:.4f}"
+            )
+
+            if float(val_metrics["mean_iou"]) > best_miou:
+                best_miou = float(val_metrics["mean_iou"])
+                save_checkpoint(checkpoint_dir / "best.pt", model, optimizer, epoch, val_metrics, config, best_miou, history)
+
+            save_checkpoint(checkpoint_dir / "last.pt", model, optimizer, epoch, val_metrics, config, best_miou, history)
+    except KeyboardInterrupt:
+        interrupted_epoch = max(start_epoch - 1, int(last_metrics.get("epoch", 0)))
+        interrupted_metrics = last_metrics or {"interrupted": True, "epoch": interrupted_epoch}
+        save_checkpoint(
+            checkpoint_dir / "interrupted.pt",
+            model,
+            optimizer,
+            interrupted_epoch,
+            interrupted_metrics,
+            config,
+            best_miou,
+            history,
         )
-
-        save_checkpoint(checkpoint_dir / "last.pt", model, optimizer, epoch, val_metrics, config)
-        if float(val_metrics["mean_iou"]) > best_miou:
-            best_miou = float(val_metrics["mean_iou"])
-            save_checkpoint(checkpoint_dir / "best.pt", model, optimizer, epoch, val_metrics, config)
+        print(f"\nTraining interrupted. Saved checkpoint to {checkpoint_dir / 'interrupted.pt'}")
+        raise
 
     report_path = Path(config["training"]["report_path"])
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,4 +221,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

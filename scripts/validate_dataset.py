@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 from typing import Dict, Set
 
-import numpy as np
 from PIL import Image
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -52,7 +51,7 @@ def validate_split(split_root: Path, valid_ids: Set[int], ignore_index: int) -> 
                 counts["size_mismatches"] += 1
                 print(f"[{split_root.name}] size mismatch: {image_path.name} image={image.size} mask={mask.size}")
 
-            mask_values = set(int(value) for value in np.unique(np.array(mask.convert("L"))))
+            mask_values = set(mask.convert("L").getdata())
             invalid_values = mask_values - valid_ids - {ignore_index}
             if invalid_values:
                 counts["invalid_class_masks"] += 1
@@ -81,4 +80,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

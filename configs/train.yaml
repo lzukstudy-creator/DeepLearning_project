@@ -1,0 +1,23 @@
+data:
+  root: data/processed
+  classes: configs/classes.json
+  image_size: 512
+  ignore_index: 255
+
+model:
+  name: deeplabv3_resnet50
+  pretrained: true
+
+training:
+  epochs: 30
+  batch_size: 4
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  num_workers: 2
+  checkpoint_dir: outputs/checkpoints
+  report_path: outputs/reports/train_metrics.json
+  seed: 42
+
+augmentation:
+  horizontal_flip_prob: 0.5
+  color_jitter: true

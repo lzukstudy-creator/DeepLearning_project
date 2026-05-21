@@ -12,8 +12,11 @@ outputs/reports/*.png
 data/raw/images/*
 data/raw/masks/*
 data/downloads/*
+data/detection/*
 data/processed/*/images/*
 data/processed/*/masks/*
+runs/
+yolov8*.pt
 !data/raw/images/.gitkeep
 !data/raw/masks/.gitkeep
 !data/processed/train/images/.gitkeep

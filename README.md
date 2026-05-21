@@ -104,6 +104,67 @@ python -m src.segmentation.infer \
   --output outputs/predictions/result.png
 ```
 
+## 8. 目标检测：猫狗分类 + 红框
+
+如果目标是“判断图片里是猫还是狗，并用框框出来”，建议使用目标检测模型，而不是语义分割模型。项目已提供 Oxford-IIIT Pet 到 YOLO 格式的转换脚本。
+
+准备 YOLO 检测数据：
+
+```bash
+python scripts/prepare_oxford_pet_detection.py --max-per-class 300
+```
+
+这会生成：
+
+```text
+data/detection/images/train
+data/detection/images/val
+data/detection/images/test
+data/detection/labels/train
+data/detection/labels/val
+data/detection/labels/test
+```
+
+类别定义：
+
+```text
+0 = cat
+1 = dog
+```
+
+训练 YOLOv8 nano 检测模型：
+
+```bash
+yolo detect train \
+  model=yolov8n.pt \
+  data=configs/detection.yaml \
+  epochs=30 \
+  imgsz=640 \
+  batch=8 \
+  project=outputs/detection \
+  name=cat_dog_yolov8n
+```
+
+如果没有 GPU，可以先把 `epochs` 调小，例如 `epochs=3`，用于确认流程。
+
+评估检测模型：
+
+```bash
+yolo detect val \
+  model=outputs/detection/cat_dog_yolov8n/weights/best.pt \
+  data=configs/detection.yaml
+```
+
+单图检测：
+
+```bash
+yolo detect predict \
+  model=outputs/detection/cat_dog_yolov8n/weights/best.pt \
+  source=data/detection/images/test \
+  project=outputs/detection \
+  name=predictions
+```
+
 ## 推荐数据量
 
 - 最低可跑通：每类 100-300 张有效标注图。

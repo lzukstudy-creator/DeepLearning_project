@@ -51,6 +51,7 @@ def create_loader(config: Dict, split: str, train: bool) -> DataLoader:
         shuffle=train,
         num_workers=int(training_config.get("num_workers", 0)),
         pin_memory=torch.cuda.is_available(),
+        drop_last=train,
     )
 
 

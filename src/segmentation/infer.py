@@ -52,7 +52,7 @@ def main() -> None:
     input_tensor = preprocess(original, int(config["data"]["image_size"])).to(device)
     prediction = model(input_tensor)["out"].argmax(dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
 
-    prediction_image = Image.fromarray(prediction, mode="L")
+    prediction_image = Image.fromarray(prediction).convert("L")
     prediction_image = prediction_image.resize(original.size, Image.NEAREST)
     prediction = np.array(prediction_image, dtype=np.uint8)
 
@@ -61,7 +61,7 @@ def main() -> None:
     if args.raw_output:
         raw_path = Path(args.raw_output)
         raw_path.parent.mkdir(parents=True, exist_ok=True)
-        Image.fromarray(prediction, mode="L").save(raw_path)
+        Image.fromarray(prediction).convert("L").save(raw_path)
 
     if args.boxed_output:
         draw_detection_box(
